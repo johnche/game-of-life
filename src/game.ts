@@ -1,181 +1,154 @@
-import Cell from "./cell";
-import { ACCENT_COLOR, PRIMARY_COLOR, SECONDARY_COLOR } from "./constants";
-import {Coordinate} from "./sharedTypes";
-import { arange } from "./utils";
+import Grid from "./grid";
+import { Coordinate, getCoordinateKey } from "./utils";
 
 export type GameOfLifeContext = {
-  ctx: CanvasRenderingContext2D;
-  generationTextElement: HTMLParagraphElement;
-  rows: number;
-  cols: number;
-  rowHeight: number;
-  colWidth: number;
-  generation: number;
-  mouseDown: boolean;
-  mouseHasGrabbed: boolean;
-  origo: Coordinate;
-  setActiveCell: (x: number, y: number) => void;
-  setInactiveCell: (x: number, y: number) => void;
+	ctx: CanvasRenderingContext2D;
+	rows: number;
+	cols: number;
+	rowHeight: number;
+	colWidth: number;
+	generation: number;
+	mouseDown: boolean;
+	mouseHasGrabbed: boolean;
+	origo: Coordinate;
+	isRunning: boolean;
+	previousTimestamp: number;
 };
 
 export default class Game {
-  private gameOfLifeContext: GameOfLifeContext;
-  private animationId: number;
-  private cells: {[x: number]: {[y: number]: Cell }};
+	generationTextElement: HTMLParagraphElement;
+	private gameOfLifeContext: GameOfLifeContext;
+	private animationId: number;
+	private grid: Grid;
 
-  constructor(canvas: HTMLCanvasElement, rows: number, cols: number) {
-    this.animationId = window.requestAnimationFrame(this.gameLoop);
-    const generationTextElement = document.getElementById("generation")! as HTMLParagraphElement;
+	constructor(canvas: HTMLCanvasElement, rows: number, cols: number) {
+		this.animationId = window.requestAnimationFrame(this.gameLoop);
+		this.generationTextElement = document.getElementById(
+			"generation"
+		)! as HTMLParagraphElement;
 
-    this.gameOfLifeContext = {
-      generation: 0,
-      mouseDown: false,
-      mouseHasGrabbed: false,
-      origo: { x: 0, y: 0 },
-      ctx: canvas.getContext("2d")!!,
-      rowHeight: canvas.height / rows,
-      colWidth: canvas.width / cols,
-      setActiveCell: this.setActiveCell,
-      setInactiveCell: this.setInactiveCell,
-      generationTextElement,
-      rows,
-      cols,
-    };
+		this.gameOfLifeContext = {
+			generation: 0,
+			mouseDown: false,
+			mouseHasGrabbed: false,
+			origo: { x: 0, y: 0 },
+			ctx: canvas.getContext("2d")!!,
+			rowHeight: canvas.height / rows,
+			colWidth: canvas.width / cols,
+			isRunning: false,
+			previousTimestamp: Date.now(),
+			rows,
+			cols,
+		};
 
-    generationTextElement.innerText = String(this.gameOfLifeContext.generation);
-    this.cells = {};
+		this.grid = new Grid();
 
-    canvas.onmousedown = () => (this.gameOfLifeContext.mouseDown = true);
-    window.onmouseup = this.resetMouseVariables;
-    canvas.onmouseup = this.handleCanvasMouseUp;
-    canvas.onmousemove = this.handleMouseGrab;
-  }
+		this.generationTextElement.innerText = String(
+			this.gameOfLifeContext.generation
+		);
+		canvas.onmousedown = () => (this.gameOfLifeContext.mouseDown = true);
+		window.onmouseup = this.resetMouseVariables;
+		canvas.onmouseup = this.handleCanvasMouseUp;
+		canvas.onmousemove = this.handleMouseGrab;
+		window.addEventListener('keyup', e => {
+			e.code === "Space" && this.toggleRun();
+		});
+	}
 
-  resetMouseVariables = () => {
-    this.gameOfLifeContext.mouseDown = false
-    this.gameOfLifeContext.mouseHasGrabbed = false;
-  };
+	resetMouseVariables = () => {
+		this.gameOfLifeContext.mouseDown = false;
+		this.gameOfLifeContext.mouseHasGrabbed = false;
+	};
 
-  handleCanvasMouseUp = (e: MouseEvent) => {
-    if (!this.gameOfLifeContext.mouseHasGrabbed) {
-      const position = {
-        x: Math.floor((e.offsetX - this.gameOfLifeContext.origo.x)/this.gameOfLifeContext.colWidth),
-        y: Math.floor((e.offsetY - this.gameOfLifeContext.origo.y)/this.gameOfLifeContext.rowHeight)
-      };
+	handleCanvasMouseUp = (e: MouseEvent) => {
+		if (!this.gameOfLifeContext.mouseHasGrabbed) {
+			const position = {
+				x: Math.floor(
+					(e.offsetX - this.gameOfLifeContext.origo.x) /
+						this.gameOfLifeContext.colWidth
+				),
+				y: Math.floor(
+					(e.offsetY - this.gameOfLifeContext.origo.y) /
+						this.gameOfLifeContext.rowHeight
+				),
+			};
 
-      if (this.cells[position.x] == null) {
-        this.cells[position.x] = {};
-      }
+			const cellKey = getCoordinateKey(position);
+			this.grid.toggleCell(cellKey);
+		}
+	};
 
-      if (this.cells[position.x][position.y] != null) {
-        // delete or setdead?
-        delete this.cells[position.x][position.y]
-      } else {
-        const cell = new Cell(this.gameOfLifeContext, position);
-        cell.setAlive();
-        this.cells[position.x][position.y] = cell;
-        console.log(this.cells);
-      }
-    }
-  };
+	handleMouseGrab = (e: MouseEvent) => {
+		if (this.gameOfLifeContext.mouseDown) {
+			if (e.movementX !== 0 || e.movementY !== 0) {
+				this.gameOfLifeContext.mouseHasGrabbed = true;
+				let { x, y } = this.gameOfLifeContext.origo;
+				const newX = x + e.movementX;
+				const newY = y + e.movementY;
+				this.gameOfLifeContext.origo = { x: newX, y: newY };
+			}
+		}
+	};
 
-  handleMouseGrab = (e: MouseEvent) => {
-    if (this.gameOfLifeContext.mouseDown) {
+	run = () => {
+		this.gameOfLifeContext.isRunning = true;
+		window.requestAnimationFrame(this.gameLoop);
+	};
 
-      if (e.movementX !== 0 || e.movementY !== 0) {
-        this.gameOfLifeContext.mouseHasGrabbed = true;
-        let { x, y } = this.gameOfLifeContext.origo;
-        const newX = x + e.movementX;
-        const newY = y + e.movementY;
-        this.gameOfLifeContext.origo = { x: newX, y: newY };
-      }
+	stop = () => {
+		this.gameOfLifeContext.isRunning = false;
+		window.cancelAnimationFrame(this.animationId);
+	};
 
-    }
-  };
+	toggleRun = () => this.gameOfLifeContext.isRunning ? this.stop() : this.run();
 
-  stop = () => window.cancelAnimationFrame(this.animationId);
+	gameLoop = () => {
+		const newTimestamp = Date.now();
+		const timeSinceLastRender = newTimestamp - this.gameOfLifeContext.previousTimestamp;
 
-  clear = ({ ctx }: GameOfLifeContext) => {
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  };
+		if (timeSinceLastRender > 500) {
+			this.render(this.gameOfLifeContext);
+			this.gameOfLifeContext.previousTimestamp = newTimestamp;
+		}
 
-  colorCell = (x: number, y: number, color: string) => {
-    const { ctx, rowHeight, colWidth, origo } = this.gameOfLifeContext;
+		this.animationId = window.requestAnimationFrame(this.gameLoop);
+	};
 
-    ctx.fillRect(
-      x * colWidth + 1 + origo.x,
-      y * rowHeight + 1 + origo.y,
-      colWidth - 2,
-      rowHeight - 2
-    );
-    ctx.fillStyle = color;
-    ctx.stroke();
-  };
+	clear = ({ ctx }: GameOfLifeContext) => {
+		ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+	};
 
-  setActiveCell = (x: number, y: number) => {
-    this.colorCell(x, y, SECONDARY_COLOR);
-  };
+	tick = ({}: GameOfLifeContext) => {
+		const cellKeys = this.grid.getCandidateCellKeys();
 
-  setInactiveCell = (x: number, y: number) => {
-    this.colorCell(x, y, PRIMARY_COLOR);
-  };
+		console.log(cellKeys);
+		cellKeys.forEach((cellKey) => {
+			const { x, y, ...cell } = this.grid.getCell(cellKey);
 
-  gameLoop = () => {
-    this.animationId = window.requestAnimationFrame(this.gameLoop);
-    this.clear(this.gameOfLifeContext);
-    this.render();
-  };
+			// Main game of life rules
+			const livingNeighbors = this.grid.getLivingNeighbors(x, y);
+			if (cell.isAlive) {
+				if ([2, 3].includes(livingNeighbors.length)) {
+					this.grid.setCell(x, y);
+				} else {
+					this.grid.removeCell(x, y);
+				}
+			} else {
+				if (livingNeighbors.length === 3) {
+					this.grid.setCell(x, y);
+				}
+			}
+		});
 
-  drawGrid = ({
-    ctx,
-    rowHeight,
-    colWidth,
-    rows,
-    cols,
-    origo,
-  }: GameOfLifeContext) => {
-    const offset = {
-      x: origo.x % colWidth,
-      y: origo.y % rowHeight,
-    };
+	};
 
-    ctx.beginPath();
-    ctx.strokeStyle = ACCENT_COLOR;
+	render = (gameOfLifeContext: GameOfLifeContext) => {
+		this.clear(gameOfLifeContext);
+		this.grid.draw(gameOfLifeContext);
 
-    // rows
-    arange(0, rows + 1).forEach((rowHeightStep) => {
-      ctx.moveTo(0, rowHeightStep * rowHeight + offset.y);
-      ctx.lineTo(ctx.canvas.width, rowHeightStep * rowHeight + offset.y);
-    });
-
-    // cols
-    arange(0, cols + 1).forEach((colWidthStep) => {
-      ctx.moveTo(colWidthStep * colWidth + offset.x, 0);
-      ctx.lineTo(colWidthStep * colWidth + offset.x, ctx.canvas.height);
-    });
-
-    ctx.stroke();
-  };
-
-  drawCells = () => {
-    Object.values(this.cells).forEach(val => {
-      Object.values(val).forEach(cell => {
-        cell.drawCell();
-      });
-    });
-  };
-
-  tick = ({}: GameOfLifeContext) => {
-    Object.entries(this.cells).forEach(([x, yEntries]) => {
-      Object.entries(yEntries).forEach(([y, cell]) => {
-      });
-    });
-  };
-
-  render = () => {
-    this.drawGrid(this.gameOfLifeContext);
-    this.drawCells();
-    this.tick(this.gameOfLifeContext);
-    //this.colorCell(2, 2, PRIMARY_COLOR);
-  };
+		if (this.gameOfLifeContext.isRunning) {
+			this.tick(gameOfLifeContext);
+			this.generationTextElement.innerText = String(this.gameOfLifeContext.generation++);
+		}
+	};
 }
