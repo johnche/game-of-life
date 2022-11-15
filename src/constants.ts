@@ -6,3 +6,5 @@ export const HEIGHT = 500;
 export const WIDTH = 500;
 export const ROWS = 10;
 export const COLS = 10;
+
+export const FRAME_DELAY = 100;
