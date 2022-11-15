@@ -7,4 +7,5 @@ export const WIDTH = 500;
 export const ROWS = 10;
 export const COLS = 10;
 
+// Milliseconds
 export const FRAME_DELAY = 100;
