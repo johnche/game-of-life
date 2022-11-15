@@ -50,8 +50,7 @@ export default class Grid {
 	};
 
 	getCell = (cellKey: string): CoordinateLookupResult => {
-		const { x, y } = getCoordinate(cellKey);
-		return this.cells[cellKey] ?? { x, y, isAlive: false };
+		return this.cells[cellKey] ?? { ...getCoordinate(cellKey), isAlive: false };
 	};
 
 	setCell = (x: number, y: number) => {
