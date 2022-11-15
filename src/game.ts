@@ -103,14 +103,7 @@ export default class Game {
 	toggleRun = () => this.gameOfLifeContext.isRunning ? this.stop() : this.run();
 
 	gameLoop = () => {
-		const newTimestamp = Date.now();
-		const timeSinceLastRender = newTimestamp - this.gameOfLifeContext.previousTimestamp;
-
-		if (timeSinceLastRender > 500) {
-			this.render(this.gameOfLifeContext);
-			this.gameOfLifeContext.previousTimestamp = newTimestamp;
-		}
-
+		this.render(this.gameOfLifeContext);
 		this.animationId = window.requestAnimationFrame(this.gameLoop);
 	};
 
@@ -120,8 +113,9 @@ export default class Game {
 
 	tick = ({}: GameOfLifeContext) => {
 		const cellKeys = this.grid.getCandidateCellKeys();
+		const newCells: Coordinate[] = [];
+		const dyingCells: Coordinate[] = [];
 
-		console.log(cellKeys);
 		cellKeys.forEach((cellKey) => {
 			const { x, y, ...cell } = this.grid.getCell(cellKey);
 
@@ -129,26 +123,36 @@ export default class Game {
 			const livingNeighbors = this.grid.getLivingNeighbors(x, y);
 			if (cell.isAlive) {
 				if ([2, 3].includes(livingNeighbors.length)) {
-					this.grid.setCell(x, y);
+					newCells.push({x, y});
 				} else {
-					this.grid.removeCell(x, y);
+					dyingCells.push({x, y});
 				}
 			} else {
 				if (livingNeighbors.length === 3) {
-					this.grid.setCell(x, y);
+					newCells.push({x, y});
 				}
 			}
+
 		});
 
+		newCells.forEach(({x, y}) => this.grid.setCell(x, y));
+		dyingCells.forEach(({x, y}) => this.grid.removeCell(x, y));
 	};
 
 	render = (gameOfLifeContext: GameOfLifeContext) => {
 		this.clear(gameOfLifeContext);
 		this.grid.draw(gameOfLifeContext);
 
-		if (this.gameOfLifeContext.isRunning) {
-			this.tick(gameOfLifeContext);
-			this.generationTextElement.innerText = String(this.gameOfLifeContext.generation++);
+		const newTimestamp = Date.now();
+		const timeSinceLastRender = newTimestamp - this.gameOfLifeContext.previousTimestamp;
+
+		if (timeSinceLastRender > 500) {
+			if (this.gameOfLifeContext.isRunning) {
+				this.tick(gameOfLifeContext);
+				this.generationTextElement.innerText = String(this.gameOfLifeContext.generation++);
+			}
+
+			this.gameOfLifeContext.previousTimestamp = newTimestamp;
 		}
 	};
 }
