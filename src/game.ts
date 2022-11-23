@@ -151,6 +151,7 @@ export default class Game {
 
 		newCells.forEach(({ x, y }) => this.grid.setCell(x, y));
 		dyingCells.forEach(({ x, y }) => this.grid.removeCell(x, y));
+		this.gameOfLifeContext.generation++;
 	};
 
 	render = (gameOfLifeContext: GameOfLifeContext) => {
@@ -165,7 +166,7 @@ export default class Game {
 			if (this.gameOfLifeContext.isRunning) {
 				this.tick(gameOfLifeContext);
 				this.generationTextElement.innerText = String(
-					this.gameOfLifeContext.generation++
+					this.gameOfLifeContext.generation
 				);
 			}
 
