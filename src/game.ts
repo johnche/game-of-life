@@ -51,20 +51,22 @@ export default class Game {
 		window.onmouseup = this.resetMouseVariables;
 		canvas.onmouseup = this.handleCanvasMouseUp;
 		canvas.onmousemove = this.handleMouseGrab;
-		canvas.addEventListener('wheel', this.handleMouseScroll);
+		canvas.addEventListener("wheel", this.handleMouseScroll);
 		window.addEventListener("keyup", (e) => {
 			e.code === "Space" && this.toggleRun();
 		});
 	}
 
 	handleMouseScroll = (e: WheelEvent) => {
-		const canvas = this.gameOfLifeContext.ctx.canvas
+		const canvas = this.gameOfLifeContext.ctx.canvas;
 
-		this.gameOfLifeContext.rows += e.deltaY*0.1;
-		this.gameOfLifeContext.rowHeight = canvas.height / this.gameOfLifeContext.rows;
+		this.gameOfLifeContext.rows += e.deltaY * 0.1;
+		this.gameOfLifeContext.rowHeight =
+			canvas.height / this.gameOfLifeContext.rows;
 
-		this.gameOfLifeContext.cols += e.deltaY*0.1;
-		this.gameOfLifeContext.colWidth = canvas.width / this.gameOfLifeContext.cols;
+		this.gameOfLifeContext.cols += e.deltaY * 0.1;
+		this.gameOfLifeContext.colWidth =
+			canvas.width / this.gameOfLifeContext.cols;
 	};
 
 	resetMouseVariables = () => {
